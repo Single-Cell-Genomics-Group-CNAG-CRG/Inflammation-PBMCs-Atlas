@@ -1,0 +1,742 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "id": "2dd1425a-0c07-465e-b522-9e3cc5cb93a7",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2024-10-17T13:57:36.207319Z",
+     "iopub.status.busy": "2024-10-17T13:57:36.206594Z",
+     "iopub.status.idle": "2024-10-17T13:57:39.955520Z",
+     "shell.execute_reply": "2024-10-17T13:57:39.954660Z"
+    },
+    "papermill": {
+     "duration": 3.766519,
+     "end_time": "2024-10-17T13:57:39.958163",
+     "exception": false,
+     "start_time": "2024-10-17T13:57:36.191644",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "/home/dmaspero/miniconda3/envs/scarches/lib/python3.9/site-packages/tqdm/auto.py:21: TqdmWarning: IProgress not found. Please update jupyter and ipywidgets. See https://ipywidgets.readthedocs.io/en/stable/user_install.html\n",
+      "  from .autonotebook import tqdm as notebook_tqdm\n"
+     ]
+    },
+    {
+     "data": {
+      "text/plain": [
+       "True"
+      ]
+     },
+     "execution_count": 1,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "import os\n",
+    "import sys\n",
+    "\n",
+    "import numpy as np\n",
+    "import matplotlib.pyplot as plt\n",
+    "\n",
+    "import scanpy as sc\n",
+    "import scvi\n",
+    "import torch\n",
+    "\n",
+    "from pytorch_lightning.loggers import WandbLogger\n",
+    "import wandb\n",
+    "from dotenv import load_dotenv\n",
+    "\n",
+    "import session_info\n",
+    "import warnings\n",
+    "from pyprojroot.here import here\n",
+    "\n",
+    "warnings.filterwarnings(\"ignore\")\n",
+    "sys.path.insert(1, str(here('bin')))\n",
+    "\n",
+    "torch.set_float32_matmul_precision('high')\n",
+    "\n",
+    "#plt.style.use(['science','nature','no-latex'])\n",
+    "dpi_fig_save = 300\n",
+    "sc.set_figure_params(dpi=100, dpi_save=dpi_fig_save, vector_friendly=True)\n",
+    "\n",
+    "load_dotenv(here('.env'))"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "id": "09c897fc-744b-43de-a681-718fb5d327fa",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2024-10-17T13:57:39.982101Z",
+     "iopub.status.busy": "2024-10-17T13:57:39.980793Z",
+     "iopub.status.idle": "2024-10-17T13:57:39.987585Z",
+     "shell.execute_reply": "2024-10-17T13:57:39.986540Z"
+    },
+    "papermill": {
+     "duration": 0.020845,
+     "end_time": "2024-10-17T13:57:39.990457",
+     "exception": false,
+     "start_time": "2024-10-17T13:57:39.969612",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "class CustomWandbLogger(WandbLogger):\n",
+    "    @property\n",
+    "    def save_dir(self):\n",
+    "        return self.experiment.dir"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "id": "8ee6662f-5d45-4137-80a5-bb0b9ae8d71f",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2024-10-17T13:57:40.013462Z",
+     "iopub.status.busy": "2024-10-17T13:57:40.012510Z",
+     "iopub.status.idle": "2024-10-17T13:57:40.023831Z",
+     "shell.execute_reply": "2024-10-17T13:57:40.022562Z"
+    },
+    "papermill": {
+     "duration": 0.025269,
+     "end_time": "2024-10-17T13:57:40.026521",
+     "exception": false,
+     "start_time": "2024-10-17T13:57:40.001252",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "Seed set to 0\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Last run with scvi-tools version: 1.1.2\n"
+     ]
+    }
+   ],
+   "source": [
+    "scvi.settings.seed = 0\n",
+    "print(\"Last run with scvi-tools version:\", scvi.__version__)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "a81037ff-5998-482a-ba86-520f757311a9",
+   "metadata": {
+    "papermill": {
+     "duration": 0.010621,
+     "end_time": "2024-10-17T13:57:40.048722",
+     "exception": false,
+     "start_time": "2024-10-17T13:57:40.038101",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "**Setting parameters** "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "id": "56c27966-8f10-4c93-8b1a-1fa75f005e41",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2024-10-17T13:57:40.071235Z",
+     "iopub.status.busy": "2024-10-17T13:57:40.070120Z",
+     "iopub.status.idle": "2024-10-17T13:57:40.076032Z",
+     "shell.execute_reply": "2024-10-17T13:57:40.074727Z"
+    },
+    "papermill": {
+     "duration": 0.019307,
+     "end_time": "2024-10-17T13:57:40.078374",
+     "exception": false,
+     "start_time": "2024-10-17T13:57:40.059067",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "overwriteFigures = True\n",
+    "overwriteData = True"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "id": "c86fccd3-a4fe-415b-8f4e-e2ceb3ec128a",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2024-10-17T13:57:40.099617Z",
+     "iopub.status.busy": "2024-10-17T13:57:40.099126Z",
+     "iopub.status.idle": "2024-10-17T13:57:40.105091Z",
+     "shell.execute_reply": "2024-10-17T13:57:40.103742Z"
+    },
+    "papermill": {
+     "duration": 0.020034,
+     "end_time": "2024-10-17T13:57:40.107922",
+     "exception": false,
+     "start_time": "2024-10-17T13:57:40.087888",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "cellGroup = 'Mono_and_DC'\n",
+    "workDir = os.getcwd()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "id": "2dee4d55-d168-467b-b867-a61fed9d6af1",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2024-10-17T13:57:40.130158Z",
+     "iopub.status.busy": "2024-10-17T13:57:40.129671Z",
+     "iopub.status.idle": "2024-10-17T13:57:40.136026Z",
+     "shell.execute_reply": "2024-10-17T13:57:40.134856Z"
+    },
+    "papermill": {
+     "duration": 0.021157,
+     "end_time": "2024-10-17T13:57:40.138965",
+     "exception": false,
+     "start_time": "2024-10-17T13:57:40.117808",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "annotationLevel = os.path.basename(os.path.normpath(workDir))"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "id": "11e53cd5-b746-4152-89cb-c2f0c15d90b3",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2024-10-17T13:57:40.162370Z",
+     "iopub.status.busy": "2024-10-17T13:57:40.161176Z",
+     "iopub.status.idle": "2024-10-17T13:57:40.169006Z",
+     "shell.execute_reply": "2024-10-17T13:57:40.167915Z"
+    },
+    "papermill": {
+     "duration": 0.022509,
+     "end_time": "2024-10-17T13:57:40.171855",
+     "exception": false,
+     "start_time": "2024-10-17T13:57:40.149346",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "'/scratch_isilon/groups/singlecell/shared/projects/Inflammation-PBMCs-Atlas/02_cell_annotation/SCGT00_CentralizedDataset/02_fromCellLineages_to_CellTypes/Step1'"
+      ]
+     },
+     "execution_count": 7,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "workDir"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "171d2f06-9a44-4fcb-b437-35dc546674b6",
+   "metadata": {
+    "papermill": {
+     "duration": 0.008866,
+     "end_time": "2024-10-17T13:57:40.191427",
+     "exception": false,
+     "start_time": "2024-10-17T13:57:40.182561",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "**Load data**"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 8,
+   "id": "429f34fe-dde6-4cc9-9f75-7de8f85c5ffe",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2024-10-17T13:57:40.211954Z",
+     "iopub.status.busy": "2024-10-17T13:57:40.211470Z",
+     "iopub.status.idle": "2024-10-17T13:57:45.658567Z",
+     "shell.execute_reply": "2024-10-17T13:57:45.657580Z"
+    },
+    "papermill": {
+     "duration": 4.121001,
+     "end_time": "2024-10-17T13:57:44.322011",
+     "exception": false,
+     "start_time": "2024-10-17T13:57:40.201010",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "ename": "KeyboardInterrupt",
+     "evalue": "",
+     "output_type": "error",
+     "traceback": [
+      "\u001b[0;31m---------------------------------------------------------------------------\u001b[0m",
+      "\u001b[0;31mKeyboardInterrupt\u001b[0m                         Traceback (most recent call last)",
+      "Cell \u001b[0;32mIn[8], line 1\u001b[0m\n\u001b[0;32m----> 1\u001b[0m adata \u001b[38;5;241m=\u001b[39m \u001b[43msc\u001b[49m\u001b[38;5;241;43m.\u001b[39;49m\u001b[43mread_h5ad\u001b[49m\u001b[43m(\u001b[49m\u001b[43mhere\u001b[49m\u001b[43m(\u001b[49m\u001b[38;5;124;43mf\u001b[39;49m\u001b[38;5;124;43m\"\u001b[39;49m\u001b[38;5;132;43;01m{\u001b[39;49;00m\u001b[43mworkDir\u001b[49m\u001b[38;5;132;43;01m}\u001b[39;49;00m\u001b[38;5;124;43m/\u001b[39;49m\u001b[38;5;132;43;01m{\u001b[39;49;00m\u001b[43mcellGroup\u001b[49m\u001b[38;5;132;43;01m}\u001b[39;49;00m\u001b[38;5;124;43m/results/01_\u001b[39;49m\u001b[38;5;132;43;01m{\u001b[39;49;00m\u001b[43mcellGroup\u001b[49m\u001b[38;5;132;43;01m}\u001b[39;49;00m\u001b[38;5;124;43m_normalized_HVGsubset.h5ad\u001b[39;49m\u001b[38;5;124;43m\"\u001b[39;49m\u001b[43m)\u001b[49m\u001b[43m)\u001b[49m\n\u001b[1;32m      2\u001b[0m adata\n",
+      "File \u001b[0;32m~/miniconda3/envs/scarches/lib/python3.9/site-packages/anndata/_io/h5ad.py:261\u001b[0m, in \u001b[0;36mread_h5ad\u001b[0;34m(filename, backed, as_sparse, as_sparse_fmt, chunk_size)\u001b[0m\n\u001b[1;32m    258\u001b[0m         \u001b[38;5;28;01mreturn\u001b[39;00m read_dataframe(elem)\n\u001b[1;32m    259\u001b[0m     \u001b[38;5;28;01mreturn\u001b[39;00m func(elem)\n\u001b[0;32m--> 261\u001b[0m adata \u001b[38;5;241m=\u001b[39m \u001b[43mread_dispatched\u001b[49m\u001b[43m(\u001b[49m\u001b[43mf\u001b[49m\u001b[43m,\u001b[49m\u001b[43m \u001b[49m\u001b[43mcallback\u001b[49m\u001b[38;5;241;43m=\u001b[39;49m\u001b[43mcallback\u001b[49m\u001b[43m)\u001b[49m\n\u001b[1;32m    263\u001b[0m \u001b[38;5;66;03m# Backwards compat (should figure out which version)\u001b[39;00m\n\u001b[1;32m    264\u001b[0m \u001b[38;5;28;01mif\u001b[39;00m \u001b[38;5;124m\"\u001b[39m\u001b[38;5;124mraw.X\u001b[39m\u001b[38;5;124m\"\u001b[39m \u001b[38;5;129;01min\u001b[39;00m f:\n",
+      "File \u001b[0;32m~/miniconda3/envs/scarches/lib/python3.9/site-packages/anndata/experimental/_dispatch_io.py:48\u001b[0m, in \u001b[0;36mread_dispatched\u001b[0;34m(elem, callback)\u001b[0m\n\u001b[1;32m     44\u001b[0m \u001b[38;5;28;01mfrom\u001b[39;00m \u001b[38;5;21;01manndata\u001b[39;00m\u001b[38;5;21;01m.\u001b[39;00m\u001b[38;5;21;01m_io\u001b[39;00m\u001b[38;5;21;01m.\u001b[39;00m\u001b[38;5;21;01mspecs\u001b[39;00m \u001b[38;5;28;01mimport\u001b[39;00m _REGISTRY, Reader\n\u001b[1;32m     46\u001b[0m reader \u001b[38;5;241m=\u001b[39m Reader(_REGISTRY, callback\u001b[38;5;241m=\u001b[39mcallback)\n\u001b[0;32m---> 48\u001b[0m \u001b[38;5;28;01mreturn\u001b[39;00m \u001b[43mreader\u001b[49m\u001b[38;5;241;43m.\u001b[39;49m\u001b[43mread_elem\u001b[49m\u001b[43m(\u001b[49m\u001b[43melem\u001b[49m\u001b[43m)\u001b[49m\n",
+      "File \u001b[0;32m~/miniconda3/envs/scarches/lib/python3.9/site-packages/anndata/_io/utils.py:207\u001b[0m, in \u001b[0;36mreport_read_key_on_error.<locals>.func_wrapper\u001b[0;34m(*args, **kwargs)\u001b[0m\n\u001b[1;32m    205\u001b[0m     \u001b[38;5;28;01mraise\u001b[39;00m \u001b[38;5;167;01mValueError\u001b[39;00m(\u001b[38;5;124m\"\u001b[39m\u001b[38;5;124mNo element found in args.\u001b[39m\u001b[38;5;124m\"\u001b[39m)\n\u001b[1;32m    206\u001b[0m \u001b[38;5;28;01mtry\u001b[39;00m:\n\u001b[0;32m--> 207\u001b[0m     \u001b[38;5;28;01mreturn\u001b[39;00m \u001b[43mfunc\u001b[49m\u001b[43m(\u001b[49m\u001b[38;5;241;43m*\u001b[39;49m\u001b[43margs\u001b[49m\u001b[43m,\u001b[49m\u001b[43m \u001b[49m\u001b[38;5;241;43m*\u001b[39;49m\u001b[38;5;241;43m*\u001b[39;49m\u001b[43mkwargs\u001b[49m\u001b[43m)\u001b[49m\n\u001b[1;32m    208\u001b[0m \u001b[38;5;28;01mexcept\u001b[39;00m \u001b[38;5;167;01mException\u001b[39;00m \u001b[38;5;28;01mas\u001b[39;00m e:\n\u001b[1;32m    209\u001b[0m     path, key \u001b[38;5;241m=\u001b[39m _get_display_path(store)\u001b[38;5;241m.\u001b[39mrsplit(\u001b[38;5;124m\"\u001b[39m\u001b[38;5;124m/\u001b[39m\u001b[38;5;124m\"\u001b[39m, \u001b[38;5;241m1\u001b[39m)\n",
+      "File \u001b[0;32m~/miniconda3/envs/scarches/lib/python3.9/site-packages/anndata/_io/specs/registry.py:256\u001b[0m, in \u001b[0;36mReader.read_elem\u001b[0;34m(self, elem, modifiers)\u001b[0m\n\u001b[1;32m    254\u001b[0m \u001b[38;5;28;01mif\u001b[39;00m \u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39mcallback \u001b[38;5;129;01mis\u001b[39;00m \u001b[38;5;28;01mNone\u001b[39;00m:\n\u001b[1;32m    255\u001b[0m     \u001b[38;5;28;01mreturn\u001b[39;00m read_func(elem)\n\u001b[0;32m--> 256\u001b[0m \u001b[38;5;28;01mreturn\u001b[39;00m \u001b[38;5;28;43mself\u001b[39;49m\u001b[38;5;241;43m.\u001b[39;49m\u001b[43mcallback\u001b[49m\u001b[43m(\u001b[49m\u001b[43mread_func\u001b[49m\u001b[43m,\u001b[49m\u001b[43m \u001b[49m\u001b[43melem\u001b[49m\u001b[38;5;241;43m.\u001b[39;49m\u001b[43mname\u001b[49m\u001b[43m,\u001b[49m\u001b[43m \u001b[49m\u001b[43melem\u001b[49m\u001b[43m,\u001b[49m\u001b[43m \u001b[49m\u001b[43miospec\u001b[49m\u001b[38;5;241;43m=\u001b[39;49m\u001b[43miospec\u001b[49m\u001b[43m)\u001b[49m\n",
+      "File \u001b[0;32m~/miniconda3/envs/scarches/lib/python3.9/site-packages/anndata/_io/h5ad.py:242\u001b[0m, in \u001b[0;36mread_h5ad.<locals>.callback\u001b[0;34m(func, elem_name, elem, iospec)\u001b[0m\n\u001b[1;32m    239\u001b[0m \u001b[38;5;28;01mdef\u001b[39;00m \u001b[38;5;21mcallback\u001b[39m(func, elem_name: \u001b[38;5;28mstr\u001b[39m, elem, iospec):\n\u001b[1;32m    240\u001b[0m     \u001b[38;5;28;01mif\u001b[39;00m iospec\u001b[38;5;241m.\u001b[39mencoding_type \u001b[38;5;241m==\u001b[39m \u001b[38;5;124m\"\u001b[39m\u001b[38;5;124manndata\u001b[39m\u001b[38;5;124m\"\u001b[39m \u001b[38;5;129;01mor\u001b[39;00m elem_name\u001b[38;5;241m.\u001b[39mendswith(\u001b[38;5;124m\"\u001b[39m\u001b[38;5;124m/\u001b[39m\u001b[38;5;124m\"\u001b[39m):\n\u001b[1;32m    241\u001b[0m         \u001b[38;5;28;01mreturn\u001b[39;00m AnnData(\n\u001b[0;32m--> 242\u001b[0m             \u001b[38;5;241m*\u001b[39m\u001b[38;5;241m*\u001b[39m{\n\u001b[1;32m    243\u001b[0m                 \u001b[38;5;66;03m# This is covering up backwards compat in the anndata initializer\u001b[39;00m\n\u001b[1;32m    244\u001b[0m                 \u001b[38;5;66;03m# In most cases we should be able to call `func(elen[k])` instead\u001b[39;00m\n\u001b[1;32m    245\u001b[0m                 k: read_dispatched(elem[k], callback)\n\u001b[1;32m    246\u001b[0m                 \u001b[38;5;28;01mfor\u001b[39;00m k \u001b[38;5;129;01min\u001b[39;00m elem\u001b[38;5;241m.\u001b[39mkeys()\n\u001b[1;32m    247\u001b[0m                 \u001b[38;5;28;01mif\u001b[39;00m \u001b[38;5;129;01mnot\u001b[39;00m k\u001b[38;5;241m.\u001b[39mstartswith(\u001b[38;5;124m\"\u001b[39m\u001b[38;5;124mraw.\u001b[39m\u001b[38;5;124m\"\u001b[39m)\n\u001b[1;32m    248\u001b[0m             }\n\u001b[1;32m    249\u001b[0m         )\n\u001b[1;32m    250\u001b[0m     \u001b[38;5;28;01melif\u001b[39;00m elem_name\u001b[38;5;241m.\u001b[39mstartswith(\u001b[38;5;124m\"\u001b[39m\u001b[38;5;124m/raw.\u001b[39m\u001b[38;5;124m\"\u001b[39m):\n\u001b[1;32m    251\u001b[0m         \u001b[38;5;28;01mreturn\u001b[39;00m \u001b[38;5;28;01mNone\u001b[39;00m\n",
+      "File \u001b[0;32m~/miniconda3/envs/scarches/lib/python3.9/site-packages/anndata/_io/h5ad.py:245\u001b[0m, in \u001b[0;36m<dictcomp>\u001b[0;34m(.0)\u001b[0m\n\u001b[1;32m    239\u001b[0m \u001b[38;5;28;01mdef\u001b[39;00m \u001b[38;5;21mcallback\u001b[39m(func, elem_name: \u001b[38;5;28mstr\u001b[39m, elem, iospec):\n\u001b[1;32m    240\u001b[0m     \u001b[38;5;28;01mif\u001b[39;00m iospec\u001b[38;5;241m.\u001b[39mencoding_type \u001b[38;5;241m==\u001b[39m \u001b[38;5;124m\"\u001b[39m\u001b[38;5;124manndata\u001b[39m\u001b[38;5;124m\"\u001b[39m \u001b[38;5;129;01mor\u001b[39;00m elem_name\u001b[38;5;241m.\u001b[39mendswith(\u001b[38;5;124m\"\u001b[39m\u001b[38;5;124m/\u001b[39m\u001b[38;5;124m\"\u001b[39m):\n\u001b[1;32m    241\u001b[0m         \u001b[38;5;28;01mreturn\u001b[39;00m AnnData(\n\u001b[1;32m    242\u001b[0m             \u001b[38;5;241m*\u001b[39m\u001b[38;5;241m*\u001b[39m{\n\u001b[1;32m    243\u001b[0m                 \u001b[38;5;66;03m# This is covering up backwards compat in the anndata initializer\u001b[39;00m\n\u001b[1;32m    244\u001b[0m                 \u001b[38;5;66;03m# In most cases we should be able to call `func(elen[k])` instead\u001b[39;00m\n\u001b[0;32m--> 245\u001b[0m                 k: \u001b[43mread_dispatched\u001b[49m\u001b[43m(\u001b[49m\u001b[43melem\u001b[49m\u001b[43m[\u001b[49m\u001b[43mk\u001b[49m\u001b[43m]\u001b[49m\u001b[43m,\u001b[49m\u001b[43m \u001b[49m\u001b[43mcallback\u001b[49m\u001b[43m)\u001b[49m\n\u001b[1;32m    246\u001b[0m                 \u001b[38;5;28;01mfor\u001b[39;00m k \u001b[38;5;129;01min\u001b[39;00m elem\u001b[38;5;241m.\u001b[39mkeys()\n\u001b[1;32m    247\u001b[0m                 \u001b[38;5;28;01mif\u001b[39;00m \u001b[38;5;129;01mnot\u001b[39;00m k\u001b[38;5;241m.\u001b[39mstartswith(\u001b[38;5;124m\"\u001b[39m\u001b[38;5;124mraw.\u001b[39m\u001b[38;5;124m\"\u001b[39m)\n\u001b[1;32m    248\u001b[0m             }\n\u001b[1;32m    249\u001b[0m         )\n\u001b[1;32m    250\u001b[0m     \u001b[38;5;28;01melif\u001b[39;00m elem_name\u001b[38;5;241m.\u001b[39mstartswith(\u001b[38;5;124m\"\u001b[39m\u001b[38;5;124m/raw.\u001b[39m\u001b[38;5;124m\"\u001b[39m):\n\u001b[1;32m    251\u001b[0m         \u001b[38;5;28;01mreturn\u001b[39;00m \u001b[38;5;28;01mNone\u001b[39;00m\n",
+      "File \u001b[0;32m~/miniconda3/envs/scarches/lib/python3.9/site-packages/anndata/experimental/_dispatch_io.py:48\u001b[0m, in \u001b[0;36mread_dispatched\u001b[0;34m(elem, callback)\u001b[0m\n\u001b[1;32m     44\u001b[0m \u001b[38;5;28;01mfrom\u001b[39;00m \u001b[38;5;21;01manndata\u001b[39;00m\u001b[38;5;21;01m.\u001b[39;00m\u001b[38;5;21;01m_io\u001b[39;00m\u001b[38;5;21;01m.\u001b[39;00m\u001b[38;5;21;01mspecs\u001b[39;00m \u001b[38;5;28;01mimport\u001b[39;00m _REGISTRY, Reader\n\u001b[1;32m     46\u001b[0m reader \u001b[38;5;241m=\u001b[39m Reader(_REGISTRY, callback\u001b[38;5;241m=\u001b[39mcallback)\n\u001b[0;32m---> 48\u001b[0m \u001b[38;5;28;01mreturn\u001b[39;00m \u001b[43mreader\u001b[49m\u001b[38;5;241;43m.\u001b[39;49m\u001b[43mread_elem\u001b[49m\u001b[43m(\u001b[49m\u001b[43melem\u001b[49m\u001b[43m)\u001b[49m\n",
+      "File \u001b[0;32m~/miniconda3/envs/scarches/lib/python3.9/site-packages/anndata/_io/utils.py:207\u001b[0m, in \u001b[0;36mreport_read_key_on_error.<locals>.func_wrapper\u001b[0;34m(*args, **kwargs)\u001b[0m\n\u001b[1;32m    205\u001b[0m     \u001b[38;5;28;01mraise\u001b[39;00m \u001b[38;5;167;01mValueError\u001b[39;00m(\u001b[38;5;124m\"\u001b[39m\u001b[38;5;124mNo element found in args.\u001b[39m\u001b[38;5;124m\"\u001b[39m)\n\u001b[1;32m    206\u001b[0m \u001b[38;5;28;01mtry\u001b[39;00m:\n\u001b[0;32m--> 207\u001b[0m     \u001b[38;5;28;01mreturn\u001b[39;00m \u001b[43mfunc\u001b[49m\u001b[43m(\u001b[49m\u001b[38;5;241;43m*\u001b[39;49m\u001b[43margs\u001b[49m\u001b[43m,\u001b[49m\u001b[43m \u001b[49m\u001b[38;5;241;43m*\u001b[39;49m\u001b[38;5;241;43m*\u001b[39;49m\u001b[43mkwargs\u001b[49m\u001b[43m)\u001b[49m\n\u001b[1;32m    208\u001b[0m \u001b[38;5;28;01mexcept\u001b[39;00m \u001b[38;5;167;01mException\u001b[39;00m \u001b[38;5;28;01mas\u001b[39;00m e:\n\u001b[1;32m    209\u001b[0m     path, key \u001b[38;5;241m=\u001b[39m _get_display_path(store)\u001b[38;5;241m.\u001b[39mrsplit(\u001b[38;5;124m\"\u001b[39m\u001b[38;5;124m/\u001b[39m\u001b[38;5;124m\"\u001b[39m, \u001b[38;5;241m1\u001b[39m)\n",
+      "File \u001b[0;32m~/miniconda3/envs/scarches/lib/python3.9/site-packages/anndata/_io/specs/registry.py:256\u001b[0m, in \u001b[0;36mReader.read_elem\u001b[0;34m(self, elem, modifiers)\u001b[0m\n\u001b[1;32m    254\u001b[0m \u001b[38;5;28;01mif\u001b[39;00m \u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39mcallback \u001b[38;5;129;01mis\u001b[39;00m \u001b[38;5;28;01mNone\u001b[39;00m:\n\u001b[1;32m    255\u001b[0m     \u001b[38;5;28;01mreturn\u001b[39;00m read_func(elem)\n\u001b[0;32m--> 256\u001b[0m \u001b[38;5;28;01mreturn\u001b[39;00m \u001b[38;5;28;43mself\u001b[39;49m\u001b[38;5;241;43m.\u001b[39;49m\u001b[43mcallback\u001b[49m\u001b[43m(\u001b[49m\u001b[43mread_func\u001b[49m\u001b[43m,\u001b[49m\u001b[43m \u001b[49m\u001b[43melem\u001b[49m\u001b[38;5;241;43m.\u001b[39;49m\u001b[43mname\u001b[49m\u001b[43m,\u001b[49m\u001b[43m \u001b[49m\u001b[43melem\u001b[49m\u001b[43m,\u001b[49m\u001b[43m \u001b[49m\u001b[43miospec\u001b[49m\u001b[38;5;241;43m=\u001b[39;49m\u001b[43miospec\u001b[49m\u001b[43m)\u001b[49m\n",
+      "File \u001b[0;32m~/miniconda3/envs/scarches/lib/python3.9/site-packages/anndata/_io/h5ad.py:259\u001b[0m, in \u001b[0;36mread_h5ad.<locals>.callback\u001b[0;34m(func, elem_name, elem, iospec)\u001b[0m\n\u001b[1;32m    256\u001b[0m \u001b[38;5;28;01melif\u001b[39;00m elem_name \u001b[38;5;129;01min\u001b[39;00m {\u001b[38;5;124m\"\u001b[39m\u001b[38;5;124m/obs\u001b[39m\u001b[38;5;124m\"\u001b[39m, \u001b[38;5;124m\"\u001b[39m\u001b[38;5;124m/var\u001b[39m\u001b[38;5;124m\"\u001b[39m}:\n\u001b[1;32m    257\u001b[0m     \u001b[38;5;66;03m# Backwards compat\u001b[39;00m\n\u001b[1;32m    258\u001b[0m     \u001b[38;5;28;01mreturn\u001b[39;00m read_dataframe(elem)\n\u001b[0;32m--> 259\u001b[0m \u001b[38;5;28;01mreturn\u001b[39;00m \u001b[43mfunc\u001b[49m\u001b[43m(\u001b[49m\u001b[43melem\u001b[49m\u001b[43m)\u001b[49m\n",
+      "File \u001b[0;32m~/miniconda3/envs/scarches/lib/python3.9/site-packages/anndata/_io/specs/methods.py:304\u001b[0m, in \u001b[0;36mread_mapping\u001b[0;34m(elem, _reader)\u001b[0m\n\u001b[1;32m    301\u001b[0m \u001b[38;5;129m@_REGISTRY\u001b[39m\u001b[38;5;241m.\u001b[39mregister_read(H5Group, IOSpec(\u001b[38;5;124m\"\u001b[39m\u001b[38;5;124mdict\u001b[39m\u001b[38;5;124m\"\u001b[39m, \u001b[38;5;124m\"\u001b[39m\u001b[38;5;124m0.1.0\u001b[39m\u001b[38;5;124m\"\u001b[39m))\n\u001b[1;32m    302\u001b[0m \u001b[38;5;129m@_REGISTRY\u001b[39m\u001b[38;5;241m.\u001b[39mregister_read(ZarrGroup, IOSpec(\u001b[38;5;124m\"\u001b[39m\u001b[38;5;124mdict\u001b[39m\u001b[38;5;124m\"\u001b[39m, \u001b[38;5;124m\"\u001b[39m\u001b[38;5;124m0.1.0\u001b[39m\u001b[38;5;124m\"\u001b[39m))\n\u001b[1;32m    303\u001b[0m \u001b[38;5;28;01mdef\u001b[39;00m \u001b[38;5;21mread_mapping\u001b[39m(elem, _reader):\n\u001b[0;32m--> 304\u001b[0m     \u001b[38;5;28;01mreturn\u001b[39;00m {k: _reader\u001b[38;5;241m.\u001b[39mread_elem(v) \u001b[38;5;28;01mfor\u001b[39;00m k, v \u001b[38;5;129;01min\u001b[39;00m elem\u001b[38;5;241m.\u001b[39mitems()}\n",
+      "File \u001b[0;32m~/miniconda3/envs/scarches/lib/python3.9/site-packages/anndata/_io/specs/methods.py:304\u001b[0m, in \u001b[0;36m<dictcomp>\u001b[0;34m(.0)\u001b[0m\n\u001b[1;32m    301\u001b[0m \u001b[38;5;129m@_REGISTRY\u001b[39m\u001b[38;5;241m.\u001b[39mregister_read(H5Group, IOSpec(\u001b[38;5;124m\"\u001b[39m\u001b[38;5;124mdict\u001b[39m\u001b[38;5;124m\"\u001b[39m, \u001b[38;5;124m\"\u001b[39m\u001b[38;5;124m0.1.0\u001b[39m\u001b[38;5;124m\"\u001b[39m))\n\u001b[1;32m    302\u001b[0m \u001b[38;5;129m@_REGISTRY\u001b[39m\u001b[38;5;241m.\u001b[39mregister_read(ZarrGroup, IOSpec(\u001b[38;5;124m\"\u001b[39m\u001b[38;5;124mdict\u001b[39m\u001b[38;5;124m\"\u001b[39m, \u001b[38;5;124m\"\u001b[39m\u001b[38;5;124m0.1.0\u001b[39m\u001b[38;5;124m\"\u001b[39m))\n\u001b[1;32m    303\u001b[0m \u001b[38;5;28;01mdef\u001b[39;00m \u001b[38;5;21mread_mapping\u001b[39m(elem, _reader):\n\u001b[0;32m--> 304\u001b[0m     \u001b[38;5;28;01mreturn\u001b[39;00m {k: \u001b[43m_reader\u001b[49m\u001b[38;5;241;43m.\u001b[39;49m\u001b[43mread_elem\u001b[49m\u001b[43m(\u001b[49m\u001b[43mv\u001b[49m\u001b[43m)\u001b[49m \u001b[38;5;28;01mfor\u001b[39;00m k, v \u001b[38;5;129;01min\u001b[39;00m elem\u001b[38;5;241m.\u001b[39mitems()}\n",
+      "File \u001b[0;32m~/miniconda3/envs/scarches/lib/python3.9/site-packages/anndata/_io/utils.py:207\u001b[0m, in \u001b[0;36mreport_read_key_on_error.<locals>.func_wrapper\u001b[0;34m(*args, **kwargs)\u001b[0m\n\u001b[1;32m    205\u001b[0m     \u001b[38;5;28;01mraise\u001b[39;00m \u001b[38;5;167;01mValueError\u001b[39;00m(\u001b[38;5;124m\"\u001b[39m\u001b[38;5;124mNo element found in args.\u001b[39m\u001b[38;5;124m\"\u001b[39m)\n\u001b[1;32m    206\u001b[0m \u001b[38;5;28;01mtry\u001b[39;00m:\n\u001b[0;32m--> 207\u001b[0m     \u001b[38;5;28;01mreturn\u001b[39;00m \u001b[43mfunc\u001b[49m\u001b[43m(\u001b[49m\u001b[38;5;241;43m*\u001b[39;49m\u001b[43margs\u001b[49m\u001b[43m,\u001b[49m\u001b[43m \u001b[49m\u001b[38;5;241;43m*\u001b[39;49m\u001b[38;5;241;43m*\u001b[39;49m\u001b[43mkwargs\u001b[49m\u001b[43m)\u001b[49m\n\u001b[1;32m    208\u001b[0m \u001b[38;5;28;01mexcept\u001b[39;00m \u001b[38;5;167;01mException\u001b[39;00m \u001b[38;5;28;01mas\u001b[39;00m e:\n\u001b[1;32m    209\u001b[0m     path, key \u001b[38;5;241m=\u001b[39m _get_display_path(store)\u001b[38;5;241m.\u001b[39mrsplit(\u001b[38;5;124m\"\u001b[39m\u001b[38;5;124m/\u001b[39m\u001b[38;5;124m\"\u001b[39m, \u001b[38;5;241m1\u001b[39m)\n",
+      "File \u001b[0;32m~/miniconda3/envs/scarches/lib/python3.9/site-packages/anndata/_io/specs/registry.py:256\u001b[0m, in \u001b[0;36mReader.read_elem\u001b[0;34m(self, elem, modifiers)\u001b[0m\n\u001b[1;32m    254\u001b[0m \u001b[38;5;28;01mif\u001b[39;00m \u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39mcallback \u001b[38;5;129;01mis\u001b[39;00m \u001b[38;5;28;01mNone\u001b[39;00m:\n\u001b[1;32m    255\u001b[0m     \u001b[38;5;28;01mreturn\u001b[39;00m read_func(elem)\n\u001b[0;32m--> 256\u001b[0m \u001b[38;5;28;01mreturn\u001b[39;00m \u001b[38;5;28;43mself\u001b[39;49m\u001b[38;5;241;43m.\u001b[39;49m\u001b[43mcallback\u001b[49m\u001b[43m(\u001b[49m\u001b[43mread_func\u001b[49m\u001b[43m,\u001b[49m\u001b[43m \u001b[49m\u001b[43melem\u001b[49m\u001b[38;5;241;43m.\u001b[39;49m\u001b[43mname\u001b[49m\u001b[43m,\u001b[49m\u001b[43m \u001b[49m\u001b[43melem\u001b[49m\u001b[43m,\u001b[49m\u001b[43m \u001b[49m\u001b[43miospec\u001b[49m\u001b[38;5;241;43m=\u001b[39;49m\u001b[43miospec\u001b[49m\u001b[43m)\u001b[49m\n",
+      "File \u001b[0;32m~/miniconda3/envs/scarches/lib/python3.9/site-packages/anndata/_io/h5ad.py:259\u001b[0m, in \u001b[0;36mread_h5ad.<locals>.callback\u001b[0;34m(func, elem_name, elem, iospec)\u001b[0m\n\u001b[1;32m    256\u001b[0m \u001b[38;5;28;01melif\u001b[39;00m elem_name \u001b[38;5;129;01min\u001b[39;00m {\u001b[38;5;124m\"\u001b[39m\u001b[38;5;124m/obs\u001b[39m\u001b[38;5;124m\"\u001b[39m, \u001b[38;5;124m\"\u001b[39m\u001b[38;5;124m/var\u001b[39m\u001b[38;5;124m\"\u001b[39m}:\n\u001b[1;32m    257\u001b[0m     \u001b[38;5;66;03m# Backwards compat\u001b[39;00m\n\u001b[1;32m    258\u001b[0m     \u001b[38;5;28;01mreturn\u001b[39;00m read_dataframe(elem)\n\u001b[0;32m--> 259\u001b[0m \u001b[38;5;28;01mreturn\u001b[39;00m \u001b[43mfunc\u001b[49m\u001b[43m(\u001b[49m\u001b[43melem\u001b[49m\u001b[43m)\u001b[49m\n",
+      "File \u001b[0;32m~/miniconda3/envs/scarches/lib/python3.9/site-packages/anndata/_io/specs/methods.py:604\u001b[0m, in \u001b[0;36mread_sparse\u001b[0;34m(elem, _reader)\u001b[0m\n\u001b[1;32m    599\u001b[0m \u001b[38;5;129m@_REGISTRY\u001b[39m\u001b[38;5;241m.\u001b[39mregister_read(H5Group, IOSpec(\u001b[38;5;124m\"\u001b[39m\u001b[38;5;124mcsc_matrix\u001b[39m\u001b[38;5;124m\"\u001b[39m, \u001b[38;5;124m\"\u001b[39m\u001b[38;5;124m0.1.0\u001b[39m\u001b[38;5;124m\"\u001b[39m))\n\u001b[1;32m    600\u001b[0m \u001b[38;5;129m@_REGISTRY\u001b[39m\u001b[38;5;241m.\u001b[39mregister_read(H5Group, IOSpec(\u001b[38;5;124m\"\u001b[39m\u001b[38;5;124mcsr_matrix\u001b[39m\u001b[38;5;124m\"\u001b[39m, \u001b[38;5;124m\"\u001b[39m\u001b[38;5;124m0.1.0\u001b[39m\u001b[38;5;124m\"\u001b[39m))\n\u001b[1;32m    601\u001b[0m \u001b[38;5;129m@_REGISTRY\u001b[39m\u001b[38;5;241m.\u001b[39mregister_read(ZarrGroup, IOSpec(\u001b[38;5;124m\"\u001b[39m\u001b[38;5;124mcsc_matrix\u001b[39m\u001b[38;5;124m\"\u001b[39m, \u001b[38;5;124m\"\u001b[39m\u001b[38;5;124m0.1.0\u001b[39m\u001b[38;5;124m\"\u001b[39m))\n\u001b[1;32m    602\u001b[0m \u001b[38;5;129m@_REGISTRY\u001b[39m\u001b[38;5;241m.\u001b[39mregister_read(ZarrGroup, IOSpec(\u001b[38;5;124m\"\u001b[39m\u001b[38;5;124mcsr_matrix\u001b[39m\u001b[38;5;124m\"\u001b[39m, \u001b[38;5;124m\"\u001b[39m\u001b[38;5;124m0.1.0\u001b[39m\u001b[38;5;124m\"\u001b[39m))\n\u001b[1;32m    603\u001b[0m \u001b[38;5;28;01mdef\u001b[39;00m \u001b[38;5;21mread_sparse\u001b[39m(elem, _reader):\n\u001b[0;32m--> 604\u001b[0m     \u001b[38;5;28;01mreturn\u001b[39;00m \u001b[43msparse_dataset\u001b[49m\u001b[43m(\u001b[49m\u001b[43melem\u001b[49m\u001b[43m)\u001b[49m\u001b[38;5;241;43m.\u001b[39;49m\u001b[43mto_memory\u001b[49m\u001b[43m(\u001b[49m\u001b[43m)\u001b[49m\n",
+      "File \u001b[0;32m~/miniconda3/envs/scarches/lib/python3.9/site-packages/anndata/_core/sparse_dataset.py:532\u001b[0m, in \u001b[0;36mBaseCompressedSparseDataset.to_memory\u001b[0;34m(self)\u001b[0m\n\u001b[1;32m    530\u001b[0m format_class \u001b[38;5;241m=\u001b[39m get_memory_class(\u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39mformat)\n\u001b[1;32m    531\u001b[0m mtx \u001b[38;5;241m=\u001b[39m format_class(\u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39mshape, dtype\u001b[38;5;241m=\u001b[39m\u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39mdtype)\n\u001b[0;32m--> 532\u001b[0m mtx\u001b[38;5;241m.\u001b[39mdata \u001b[38;5;241m=\u001b[39m \u001b[38;5;28;43mself\u001b[39;49m\u001b[38;5;241;43m.\u001b[39;49m\u001b[43mgroup\u001b[49m\u001b[43m[\u001b[49m\u001b[38;5;124;43m\"\u001b[39;49m\u001b[38;5;124;43mdata\u001b[39;49m\u001b[38;5;124;43m\"\u001b[39;49m\u001b[43m]\u001b[49m\u001b[43m[\u001b[49m\u001b[38;5;241;43m.\u001b[39;49m\u001b[38;5;241;43m.\u001b[39;49m\u001b[38;5;241;43m.\u001b[39;49m\u001b[43m]\u001b[49m\n\u001b[1;32m    533\u001b[0m mtx\u001b[38;5;241m.\u001b[39mindices \u001b[38;5;241m=\u001b[39m \u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39mgroup[\u001b[38;5;124m\"\u001b[39m\u001b[38;5;124mindices\u001b[39m\u001b[38;5;124m\"\u001b[39m][\u001b[38;5;241m.\u001b[39m\u001b[38;5;241m.\u001b[39m\u001b[38;5;241m.\u001b[39m]\n\u001b[1;32m    534\u001b[0m mtx\u001b[38;5;241m.\u001b[39mindptr \u001b[38;5;241m=\u001b[39m \u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39mindptr\n",
+      "File \u001b[0;32mh5py/_objects.pyx:54\u001b[0m, in \u001b[0;36mh5py._objects.with_phil.wrapper\u001b[0;34m()\u001b[0m\n",
+      "File \u001b[0;32mh5py/_objects.pyx:55\u001b[0m, in \u001b[0;36mh5py._objects.with_phil.wrapper\u001b[0;34m()\u001b[0m\n",
+      "File \u001b[0;32m~/miniconda3/envs/scarches/lib/python3.9/site-packages/h5py/_hl/dataset.py:758\u001b[0m, in \u001b[0;36mDataset.__getitem__\u001b[0;34m(self, args, new_dtype)\u001b[0m\n\u001b[1;32m    756\u001b[0m \u001b[38;5;28;01mif\u001b[39;00m \u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39m_fast_read_ok \u001b[38;5;129;01mand\u001b[39;00m (new_dtype \u001b[38;5;129;01mis\u001b[39;00m \u001b[38;5;28;01mNone\u001b[39;00m):\n\u001b[1;32m    757\u001b[0m     \u001b[38;5;28;01mtry\u001b[39;00m:\n\u001b[0;32m--> 758\u001b[0m         \u001b[38;5;28;01mreturn\u001b[39;00m \u001b[38;5;28;43mself\u001b[39;49m\u001b[38;5;241;43m.\u001b[39;49m\u001b[43m_fast_reader\u001b[49m\u001b[38;5;241;43m.\u001b[39;49m\u001b[43mread\u001b[49m\u001b[43m(\u001b[49m\u001b[43margs\u001b[49m\u001b[43m)\u001b[49m\n\u001b[1;32m    759\u001b[0m     \u001b[38;5;28;01mexcept\u001b[39;00m \u001b[38;5;167;01mTypeError\u001b[39;00m:\n\u001b[1;32m    760\u001b[0m         \u001b[38;5;28;01mpass\u001b[39;00m  \u001b[38;5;66;03m# Fall back to Python read pathway below\u001b[39;00m\n",
+      "\u001b[0;31mKeyboardInterrupt\u001b[0m: "
+     ]
+    }
+   ],
+   "source": [
+    "adata = sc.read_h5ad(here(f\"{workDir}/{cellGroup}/results/01_{cellGroup}_normalized_HVGsubset.h5ad\"))\n",
+    "adata"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "8ac79f3b-d5af-41fa-8904-1e9ac1cbe2fb",
+   "metadata": {
+    "papermill": {
+     "duration": null,
+     "end_time": null,
+     "exception": null,
+     "start_time": null,
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "## scVI integration"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "9544847d-d17f-4811-b14b-760446d54d32",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2024-03-25T16:49:04.004504Z",
+     "iopub.status.busy": "2024-03-25T16:49:04.004143Z",
+     "iopub.status.idle": "2024-03-25T16:49:04.010148Z",
+     "shell.execute_reply": "2024-03-25T16:49:04.009146Z",
+     "shell.execute_reply.started": "2024-03-25T16:49:04.004477Z"
+    },
+    "papermill": {
+     "duration": null,
+     "end_time": null,
+     "exception": null,
+     "start_time": null,
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "**scVI parameters**"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "208966eb-545a-4c02-854c-0ed0487ef5b3",
+   "metadata": {
+    "papermill": {
+     "duration": null,
+     "end_time": null,
+     "exception": null,
+     "start_time": null,
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "# https://docs.scvi-tools.org/en/stable/api/reference/scvi.train.Trainer.html#scvi.train.Trainer\n",
+    "setup_kwargs = dict(\n",
+    "    layer=\"counts\", \n",
+    "    batch_key='libraryID', \n",
+    "    categorical_covariate_keys = ['disease', 'sampleID'],\n",
+    ")\n",
+    "\n",
+    "scvi_kwargs = dict(n_hidden=512,\n",
+    "                   n_latent=10, # reduced to 20 after step 00 (main) and to 10 after step 03\n",
+    "                   n_layers=2,\n",
+    "                   gene_likelihood='nb')\n",
+    "\n",
+    "trainer_kwargs = dict(\n",
+    "    checkpointing_monitor = 'elbo_validation',\n",
+    "    early_stopping_monitor = 'reconstruction_loss_validation',\n",
+    "    early_stopping_patience = 10,\n",
+    "    early_stopping_min_delta=0.1,\n",
+    "    early_stopping = True,\n",
+    "    max_epochs = 1000,\n",
+    "\n",
+    "    #logger = # wandb\n",
+    ")\n",
+    "# https://docs.scvi-tools.org/en/stable/api/reference/scvi.train.TrainingPlan.html#scvi.train.TrainingPlan\n",
+    "plan_kwargs = dict(\n",
+    "    lr = 5e-4,\n",
+    "    #reduce_lr_on_plateau = True\n",
+    ")\n",
+    "\n",
+    "# https://docs.scvi-tools.org/en/stable/api/reference/scvi.module.VAE.html#scvi.module.VAE\n",
+    "#vae = dict(\n",
+    "#    use_layer_norm='both',\n",
+    "#    use_batch_norm='none',\n",
+    "#    encode_covariates=True,\n",
+    "#    deeply_inject_covariates=False\n",
+    "#)\n",
+    "parameter_dict = setup_kwargs | scvi_kwargs | trainer_kwargs | plan_kwargs"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "1362366a-c16b-4c11-964b-b9c5f82f7b29",
+   "metadata": {
+    "papermill": {
+     "duration": null,
+     "end_time": null,
+     "exception": null,
+     "start_time": null,
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "**wandb parameter**"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "0496e33a-8ca5-423f-b42f-34a59760708c",
+   "metadata": {
+    "papermill": {
+     "duration": null,
+     "end_time": null,
+     "exception": null,
+     "start_time": null,
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "run_name = f\"{annotationLevel}_{cellGroup}\"\n",
+    "run_name"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "b0021327-95a2-4002-bf32-2c5779a99505",
+   "metadata": {
+    "papermill": {
+     "duration": null,
+     "end_time": null,
+     "exception": null,
+     "start_time": null,
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "logger = CustomWandbLogger(name = run_name, project='inflammation_atlas_R1', config=parameter_dict)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "c237eee1-a976-4915-9b7f-b014bf33f47d",
+   "metadata": {
+    "papermill": {
+     "duration": null,
+     "end_time": null,
+     "exception": null,
+     "start_time": null,
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "**Running integration**"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "aff97c53-1aba-462e-8a77-f1aec9cf724c",
+   "metadata": {
+    "papermill": {
+     "duration": null,
+     "end_time": null,
+     "exception": null,
+     "start_time": null,
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "scvi.model.SCVI.setup_anndata(adata, \n",
+    "                              **setup_kwargs)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "1a56f448-cf44-47c1-81a4-a89caa930fec",
+   "metadata": {
+    "papermill": {
+     "duration": null,
+     "end_time": null,
+     "exception": null,
+     "start_time": null,
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "model = scvi.model.SCVI(adata, **scvi_kwargs)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "2735f010-4f24-4ae8-9740-a8cfeb335e9a",
+   "metadata": {
+    "papermill": {
+     "duration": null,
+     "end_time": null,
+     "exception": null,
+     "start_time": null,
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "model.train(logger=logger, plan_kwargs = plan_kwargs, **trainer_kwargs)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "c282f6eb-0ad1-40a5-81e6-1acda1545dad",
+   "metadata": {
+    "papermill": {
+     "duration": null,
+     "end_time": null,
+     "exception": null,
+     "start_time": null,
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "wandb.finish()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "d9fb1179-83c7-4ac6-b4aa-92dc7a349801",
+   "metadata": {
+    "papermill": {
+     "duration": null,
+     "end_time": null,
+     "exception": null,
+     "start_time": null,
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "### Extracting embedding space"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "caaa5832-0123-4c59-8ec6-f46a75f7a14e",
+   "metadata": {
+    "papermill": {
+     "duration": null,
+     "end_time": null,
+     "exception": null,
+     "start_time": null,
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "adata.obsm['X_scVI'] = model.get_latent_representation()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "2f03e70b-839c-40a6-9fbb-d76bbd787419",
+   "metadata": {
+    "papermill": {
+     "duration": null,
+     "end_time": null,
+     "exception": null,
+     "start_time": null,
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "## Save the results"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "7b04049b-47fd-4b62-a1c0-c43dcc086d34",
+   "metadata": {
+    "papermill": {
+     "duration": null,
+     "end_time": null,
+     "exception": null,
+     "start_time": null,
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "if overwriteData:\n",
+    "    adata.write(here(f\"{workDir}/{cellGroup}/results/02_{annotationLevel}_{cellGroup}_HVGsubset_scVI.h5ad\"), compression=\"gzip\")\n",
+    "    model.save(here(f\"{workDir}/{cellGroup}/results/02_{annotationLevel}_{cellGroup}_HVGsubset_scVI_MODEL/\"),\n",
+    "               overwrite = True, \n",
+    "               save_anndata = False )   "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "629ba2bd-f6be-44ef-8fca-bbdf891bf25f",
+   "metadata": {
+    "papermill": {
+     "duration": null,
+     "end_time": null,
+     "exception": null,
+     "start_time": null,
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "# To load the model do (after loading corresponding adata):\n",
+    "# model = scvi.model.SCVI.load(here('{}/results/01_{}_HVGsubset_scVI_MODEL/'.format(workDir, cellGroup)), \n",
+    "#                              adata, \n",
+    "#                              use_gpu=True)"
+   ]
+  },
+  {
+   "cell_type": "raw",
+   "id": "975e84d0-f56b-498d-b3a8-c9219cf22e53",
+   "metadata": {
+    "papermill": {
+     "duration": null,
+     "end_time": null,
+     "exception": null,
+     "start_time": null,
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "session_info.show()"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3 (ipykernel)",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.10.13"
+  },
+  "papermill": {
+   "default_parameters": {},
+   "duration": 11.753822,
+   "end_time": "2024-10-17T13:57:46.951847",
+   "environment_variables": {},
+   "exception": null,
+   "input_path": "./Mono_and_DC/02_integration_scVI_scANVI.ipynb",
+   "output_path": "./Mono_and_DC/02_integration_scVI_scANVI.ipynb.executed",
+   "parameters": {},
+   "start_time": "2024-10-17T13:57:35.198025",
+   "version": "2.5.0"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
