@@ -1,0 +1,29 @@
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12
+  - optuna=3.6.0
+  - optuna-integration=3.6.0
+  - shap=0.45.1
+  - py-xgboost-cpu=2.0.3
+  - sparse=0.15.4
+  - python-kaleido
+  - anndata=0.10.7
+  - numpy=1.26.4
+  - scipy=1.13.0
+  - scikit-learn=1.5.0
+  - pyprojroot
+  - jupyterlab
+  - ipykernel
+  - papermill=2.6.0
+  - ipywidgets
+  - pandas=2.2.2
+  - numba=0.59.1
+  - seaborn
+  - matplotlib
+  - plotly
+  - wandb
+  - pip:
+    - more-itertools
+    - python-dotenv

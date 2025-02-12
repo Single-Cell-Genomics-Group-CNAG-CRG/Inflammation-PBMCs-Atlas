@@ -1,0 +1,1 @@
+parallel -j 3 eval "papermill computing_shap_patients.ipynb executed_computing_shap_patients_{}.ipynb -p cell_type {} -k python3" ::: Mono T_CD4_Naive T_CD4_NonNaive T_CD8_Naive T_CD8_NonNaive B Plasma UTC ILC pDC DC
