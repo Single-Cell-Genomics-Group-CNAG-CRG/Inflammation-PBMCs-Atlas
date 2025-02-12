@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # *Interpretable Inflammation Landscape of Circulating Immune cells*
 This is the Github repository including the code used in the paper entitled *Interpretable Inflammation Landscape of Circulating Immune cells*.
 
@@ -117,3 +118,6 @@ The (most relevant) packages applied are listed below.
 * [edgeR](https://bioconductor.org/packages/release/bioc/html/edgeR.html) v.4.0.16
 * [SingleCellExperiment](https://bioconductor.org/packages/release/bioc/html/SingleCellExperiment.html) v.1.24.0
 
+=======
+# Inflammation-PBMCs-Atlas
+>>>>>>> ec48a37b75ac8c0ebc6c9851eb91e8423a828f27
