@@ -1,3 +1,27 @@
+def load_shap_statistics(
+    cell_type: str = '',
+    interactions: bool = False, 
+    run_name: str = 'run1',
+    dirpath = ''
+):
+
+    import numpy as np
+
+    if interactions:
+        shap_type = 'shap_int'
+    else:
+        shap_type = 'shap'
+
+    fname = f"{dirpath}/total_{run_name}_{cell_type}_{shap_type}_stats.npz"
+
+    shap_stats = np.load(fname)
+
+    return (
+        shap_stats['mean_raw'],
+        shap_stats['var_raw'],
+        shap_stats['mean_abs'],
+        shap_stats['var_abs'])
+    
 def aggregate_cells(adata = None,
                     SEAcellDF = None,
                     feature_mtx = None, 
