@@ -133,6 +133,16 @@ diseasesGroup_palette = {
   'healthy' : '#808080'
 }
 
+
+COVID_severity_palette = {
+    'healthy': "#808080",
+    'COVID_MILD' : "#FFD6FF",
+    'COVID_SEV' : "#C8B6FF",
+    'COVID_CRIT' : "#E7C6FF",
+    'sepsis': '#ef233c', 
+    'flu': '#274c77'
+}
+
 ###### Level 1
 annotation_Level1_palette = {
       'B': '#7bc6d6',
@@ -488,4 +498,6 @@ geneMarkers_level2 = {
     'RBC': ["HBA1", "HBB"]  # To remove
 }
 
+##### SELECTED CELL TYPES #################
 
+shap_cell_types = ["Mono", "T_CD4_Naive", "T_CD4_NonNaive", "T_CD8_Naive", "T_CD8_NonNaive", "B", "Plasma", "UTC", "ILC", "pDC", "DC"]

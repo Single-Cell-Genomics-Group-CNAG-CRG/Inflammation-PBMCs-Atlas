@@ -1,26 +1,85 @@
-def load_shap_statistics(
+def getClassMetricsDF(data=None, disease_list = None, y_true_cn = 'disease', y_pred_cn = 'disease_pred', cell_type_cn = 'Level1', include_aggregated = True):
+
+    import pandas as pd
+    from sklearn.metrics import recall_score, precision_score, f1_score, accuracy_score
+
+    classMtx = dict()
+    for f in [recall_score, precision_score, f1_score, accuracy_score]:
+        classMtx[f.__name__] = dict()
+        for ct in data[cell_type_cn].unique():
+            if f.__name__ == 'accuracy_score':
+                disease_res = []
+                for d in disease_list:
+                    disease_res.append(
+                        f(y_true = data.query(f"{cell_type_cn} == @ct")[y_true_cn] == d, 
+                          y_pred = data.query(f"{cell_type_cn} == @ct")[y_pred_cn] == d
+                         )                        
+                    )
+                    
+                classMtx[f.__name__][ct] = disease_res
+            else:
+                classMtx[f.__name__][ct] = f(y_true = data.query(f"{cell_type_cn} == @ct")[y_true_cn],
+                                             y_pred = data.query(f"{cell_type_cn} == @ct")[y_pred_cn], 
+                                             labels = disease_list, 
+                                             average = None)
+
+        if include_aggregated:
+            # computing the metric on the overall result, not stratified by cell-types
+            if f.__name__ == 'accuracy_score':
+                disease_res = []
+                for d in disease_list:
+                    disease_res.append(
+                        f(y_true = data[y_true_cn] == d, 
+                          y_pred = data[y_pred_cn] == d)                        
+                    )
+                classMtx[f.__name__]['aggregated'] = disease_res
+            else:
+                classMtx[f.__name__]['aggregated'] = f(y_true = data[y_true_cn], 
+                                                       y_pred = data[y_pred_cn], 
+                                                       labels = disease_list, average = None)
+
+        df = pd.concat([pd.DataFrame.from_dict(classMtx[f]).T.assign(metric=f) for f in classMtx]).reset_index()
+        df.columns = ['stratification'] + disease_list + ['metric']
+        
+    return df.loc[:,['metric', 'stratification'] + disease_list]
+
+
+def generate_shap_data(
     cell_type: str = '',
-    interactions: bool = False, 
-    run_name: str = 'run1',
-    dirpath = ''
+    shap_stats_path: str = '', 
+    adata_path: str = '',
+    gene_symbol_df_path: str='',
+    stat: str = 'mean_abs',
+    category_col: str = 'disease',
+    expressed_gene_cellTypes_path: str = ''
 ):
-
+    
     import numpy as np
+    import anndata as ad
+    import pandas as pd
+    
+    shap_stats = np.load(shap_stats_path)[stat]
 
-    if interactions:
-        shap_type = 'shap_int'
-    else:
-        shap_type = 'shap'
+    symbol_df = pd.read_pickle(gene_symbol_df_path)
 
-    fname = f"{dirpath}/total_{run_name}_{cell_type}_{shap_type}_stats.npz"
+    adata = ad.read_h5ad(adata_path, backed = 'r')
 
-    shap_stats = np.load(fname)
+    adata.var = adata.var.merge(symbol_df, left_index=True, right_index=True, how='left')
 
-    return (
-        shap_stats['mean_raw'],
-        shap_stats['var_raw'],
-        shap_stats['mean_abs'],
-        shap_stats['var_abs'])
+    genes = adata.var['symbol'].values
+
+    categories = adata.obs[category_col].cat.categories
+
+    ## pandas dataframe
+
+    shapDF = pd.DataFrame(shap_stats, index=genes, columns=categories)
+
+    ## keeping only selected genes
+    well_expressed_symbols = pd.read_csv(expressed_gene_cellTypes_path).query("CellType == @cell_type and `% cells` > 5").symbol.values
+
+    shapDF_filt = shapDF.iloc[shapDF.index.isin(well_expressed_symbols),:]
+
+    return shapDF_filt
     
 def aggregate_cells(adata = None,
                     SEAcellDF = None,
